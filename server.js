@@ -58,8 +58,6 @@ setInterval(() => {
     })()
 }, BROWSER_RESTART_INTERVAL)
 
-
-
 // 创建新的 page，并拦截不必要资源
 const createPage = async () => {
     const page = await browser.newPage()
@@ -82,10 +80,13 @@ const createPage = async () => {
 
 app.use(async (req, res, next) => {
     const pathUrl = req.originalUrl
+    const startTime = Date.now()
 
+    console.log(`[SSR] Start: ${pathUrl}`)
 
     // 如果缓存有效，直接返回
     if (cache[pathUrl] && cache[pathUrl].expire > Date.now()) {
+        console.log(`[SSR] Cache hit: ${pathUrl} | ${Date.now() - startTime}ms`)
         return res.send(cache[pathUrl].html)
     }
 
@@ -93,6 +94,7 @@ app.use(async (req, res, next) => {
     if (renderingLocks[pathUrl]) {
         await renderingLocks[pathUrl]
         if (cache[pathUrl] && cache[pathUrl].expire > Date.now()) {
+            console.log(`[SSR] Lock wait + cache hit: ${pathUrl} | ${Date.now() - startTime}ms`)
             return res.send(cache[pathUrl].html)
         }
     }
@@ -105,13 +107,17 @@ app.use(async (req, res, next) => {
 
             const targetUrl = `https://original2.miraii.cn${pathUrl}`
 
-            // networkidle2 更快
-            await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 20000 })
+            await page.goto(targetUrl, {
+                waitUntil: 'domcontentloaded',
+                timeout: 20000
+            })
 
-            await page.waitForFunction('window.__PRERENDER_READY__ === true', { timeout: 20000 })
+            await page.waitForFunction(
+                'window.__PRERENDER_READY__ === true',
+                { timeout: 20000 }
+            )
 
-            let  html = await page.content()
-
+            let html = await page.content()
             await page.close()
 
             html = await minify(html, {
@@ -127,10 +133,14 @@ app.use(async (req, res, next) => {
                 expire: Date.now() + CACHE_TTL
             }
 
+            console.log(`[SSR] Render success: ${pathUrl} | ${Date.now() - startTime}ms`)
             res.send(html)
 
         } catch (err) {
-            console.error(`[Puppeteer] Render failed for ${pathUrl}`, err)
+            console.error(
+                `[SSR] Render failed: ${pathUrl} | ${Date.now() - startTime}ms`,
+                err
+            )
             res.status(500).send('Render failed')
         } finally {
             delete renderingLocks[pathUrl]
