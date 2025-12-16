@@ -5,6 +5,8 @@ import path from 'path'
 import { fileURLToPath } from 'url'
 import { minify } from 'html-minifier-terser'
 
+/** * 打包命令 ncc build server.js -o dist-server --minify * @type {string} * @private */
+
 // 修复 __dirname
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
