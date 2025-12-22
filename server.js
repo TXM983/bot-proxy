@@ -25,6 +25,23 @@ const renderingLocks = {}
 // 全局浏览器实例
 let browser = null
 
+
+const now = () => {
+    const d = new Date()
+    const pad = n => String(n).padStart(2, '0')
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ` +
+        `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
+}
+
+const log = (...args) => {
+    console.log(`[${now()}]`, ...args)
+}
+
+const error = (...args) => {
+    console.error(`[${now()}]`, ...args)
+}
+
+
 const launchBrowser = async () => {
     if (!browser) {
         browser = await puppeteer.launch({
@@ -49,11 +66,11 @@ const isRendering = () => Object.keys(renderingLocks).length > 0
 setInterval(() => {
     (async () => {
         if (browser && !isRendering()) {
-            console.log('[Puppeteer] Restarting browser to free memory...')
+            log('[Puppeteer] Restarting browser to free memory...')
             try {
                 await browser.close()
             } catch (err) {
-                console.error('[Puppeteer] Error closing browser:', err)
+                error('[Puppeteer] Error closing browser:', err)
             }
             browser = null
         }
@@ -84,11 +101,11 @@ app.use(async (req, res, next) => {
     const pathUrl = req.originalUrl
     const startTime = Date.now()
 
-    console.log(`[SSR] Start: ${pathUrl}`)
+    log(`[SSR] Start: ${pathUrl}`)
 
     // 如果缓存有效，直接返回
     if (cache[pathUrl] && cache[pathUrl].expire > Date.now()) {
-        console.log(`[SSR] Cache hit: ${pathUrl} | ${Date.now() - startTime}ms`)
+        log(`[SSR] Cache hit: ${pathUrl} | ${Date.now() - startTime}ms`)
         return res.send(cache[pathUrl].html)
     }
 
@@ -96,7 +113,7 @@ app.use(async (req, res, next) => {
     if (renderingLocks[pathUrl]) {
         await renderingLocks[pathUrl]
         if (cache[pathUrl] && cache[pathUrl].expire > Date.now()) {
-            console.log(`[SSR] Lock wait + cache hit: ${pathUrl} | ${Date.now() - startTime}ms`)
+            log(`[SSR] Lock wait + cache hit: ${pathUrl} | ${Date.now() - startTime}ms`)
             return res.send(cache[pathUrl].html)
         }
     }
@@ -135,11 +152,11 @@ app.use(async (req, res, next) => {
                 expire: Date.now() + CACHE_TTL
             }
 
-            console.log(`[SSR] Render success: ${pathUrl} | ${Date.now() - startTime}ms`)
+            log(`[SSR] Render success: ${pathUrl} | ${Date.now() - startTime}ms`)
             res.send(html)
 
         } catch (err) {
-            console.error(
+            error(
                 `[SSR] Render failed: ${pathUrl} | ${Date.now() - startTime}ms`,
                 err
             )
@@ -151,7 +168,7 @@ app.use(async (req, res, next) => {
 })
 
 app.listen(29953, () => {
-    console.log('SEO Proxy running on http://localhost:29953')
+    log('SEO Proxy running on http://localhost:29953')
 })
 
 // 退出时关闭浏览器
